@@ -22,7 +22,7 @@ SimpleCache::SimpleCache(int size, int blockSize, int associativity,
     for (int i = 0; i < this->numSets; i++) {
         std::vector<Entry *> vec;
         // TODO: Associative: Allocate as many entries as there are ways
-        for (int j = 0; j < this->associativity; i++) {
+        for (int j = 0; j < this->associativity; j++) {
             vec.push_back(new Entry());
         }
         entries.push_back(vec);
