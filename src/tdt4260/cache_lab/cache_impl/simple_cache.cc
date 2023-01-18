@@ -139,7 +139,7 @@ SimpleCache::oldestWay(int index)
             oldest = i;
         } 
     }
-    return i;
+    return oldest;
 }
 
 void
