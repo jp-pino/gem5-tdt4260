@@ -1,0 +1,5 @@
+*.dockerfile
+docker-compose.yml
+build_old
+build
+.vscode

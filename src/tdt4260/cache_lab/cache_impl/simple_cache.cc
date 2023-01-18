@@ -22,7 +22,9 @@ SimpleCache::SimpleCache(int size, int blockSize, int associativity,
     for (int i = 0; i < this->numSets; i++) {
         std::vector<Entry *> vec;
         // TODO: Associative: Allocate as many entries as there are ways
-        vec.push_back(new Entry());
+        for (int j = 0; j < this->associativity; i++) {
+            vec.push_back(new Entry());
+        }
         entries.push_back(vec);
     }
 }
@@ -55,6 +57,8 @@ SimpleCache::recvReq(Addr req, int size)
         DPRINTF(TDTSimpleCache, "Hit: way: %d\n", way);
         // TODO: Associative: Update LRU info for line in entries
 
+        entries[index][way]->lastUsed = this->ctr;
+
         sendResp(req);
     } else{
         sendReq(req, size);
@@ -73,8 +77,10 @@ SimpleCache::recvResp(Addr resp)
     int way = oldestWay(index);
     DPRINTF(TDTSimpleCache, "Miss: Replaced way: %d\n", way);
     // TODO: Direct-Mapped: Record new cache line in entries
+    entries[index][way]->tag = tag;
 
     // TODO: Associative: Record LRU info for new line in entries
+    entries[index][way]->lastUsed = this->ctr;
     sendResp(resp);
 }
 
@@ -84,14 +90,15 @@ SimpleCache::calculateTag(Addr req)
     // TODO: Direct-Mapped: Calculate tag
     // hint: req >> ((int)std::log2(...
 
-    return req;
+    return req >> ((int)std::log2(blockSize)) + ((int)std::log2(numSets));
 }
 
 int
 SimpleCache::calculateIndex(Addr req)
 {
     // TODO: Direct-Mapped: Calculate index
-    return 0;
+    int tag = (64 - ((int)std::log2(blockSize)) + ((int)std::log2(numSets)));
+    return (req << tag) >> (tag + ((int)std::log2(blockSize)));
 }
 
 bool
@@ -99,6 +106,12 @@ SimpleCache::hasLine(int index, int tag)
 {
     // TODO: Direct-Mapped: Check if line is already in cache
     // TODO: Associative: Check all possible ways
+    for (int i = 0; i < this->associativity; i++) {
+        if (entries[index][i]->tag == tag) {
+            return true;
+        } 
+    }
+    
     return false;
 }
 
@@ -106,6 +119,11 @@ int
 SimpleCache::lineWay(int index, int tag)
 {
     // TODO: Associative: Find in which way a cache line is stored
+    for (int i = 0; i < this->associativity; i++) {
+        if (entries[index][i]->tag == tag) {
+            return i;
+        } 
+    }
     return 0;
 }
 

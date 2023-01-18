@@ -1,0 +1,32 @@
+version: '3'
+
+volumes:
+  gem5-tmp:
+
+services:
+  gem5:
+    image: tdt4260/gem5-x86
+    build:
+      context: .
+      dockerfile: gem5-x86.dockerfile
+    volumes:
+      - ./:/gem5
+      - gem5-tmp:/tmp
+    working_dir: /gem5
+    deploy:
+      resources:
+        reservations:
+          cpus: '6'
+          memory: 8G
+  gem5-arm:
+    image: tdt4260/gem5
+    build:
+      context: .
+      dockerfile: gem5.dockerfile
+    volumes:
+      - ./:/gem5
+    deploy:
+      resources:
+        reservations:
+          cpus: '6'
+          memory: 8G
