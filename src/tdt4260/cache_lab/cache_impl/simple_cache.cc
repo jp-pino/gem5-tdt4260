@@ -90,7 +90,7 @@ SimpleCache::calculateTag(Addr req)
     // TODO: Direct-Mapped: Calculate tag
     // hint: req >> ((int)std::log2(...
 
-    return req >> ((int)std::log2(blockSize)) + ((int)std::log2(numSets));
+    return req >> (((int)std::log2(blockSize)) + ((int)std::log2(numSets)));
 }
 
 int
@@ -131,7 +131,15 @@ int
 SimpleCache::oldestWay(int index)
 {
     // TODO: Associative: Determine the oldest way
-    return 0;
+    int max = this->ctr;
+    int oldest = 0;
+    for (int i = 0; i < this->associativity; i++) {
+        if (entries[index][i]->lastUsed < max) {
+            max = entries[index][i]->lastUsed;
+            oldest = i;
+        } 
+    }
+    return i;
 }
 
 void
