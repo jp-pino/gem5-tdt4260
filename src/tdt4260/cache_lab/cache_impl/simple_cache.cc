@@ -17,8 +17,6 @@ SimpleCache::SimpleCache(int size, int blockSize, int associativity,
 {
     numEntries = this->size / this->blockSize;
     numSets = this->numEntries / this->associativity;
-    DPRINTF(TDTSimpleCache, "Debug: numEntries: %d, numSets: %d\n", numEntries, numSets);
-    
 
     // allocate entries for all sets and ways
     for (int i = 0; i < this->numSets; i++) {
@@ -91,6 +89,7 @@ SimpleCache::calculateTag(Addr req)
 {
     // TODO: Direct-Mapped: Calculate tag
     // hint: req >> ((int)std::log2(...
+    DPRINTF(TDTSimpleCache, "Debug: numEntries: %d, numSets: %d, blockSize: %d\n", numEntries, numSets, blockSize);
 
     return req >> (((int)std::log2(blockSize)) + ((int)std::log2(numSets)));
 }
