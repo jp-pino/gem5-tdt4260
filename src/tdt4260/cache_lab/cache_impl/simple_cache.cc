@@ -98,6 +98,7 @@ SimpleCache::calculateIndex(Addr req)
 {
     // TODO: Direct-Mapped: Calculate index
     int tag = (64 - ((int)std::log2(blockSize)) + ((int)std::log2(numSets)));
+    DPRINTF(TDTSimpleCache, "Tag bit count: %d\n", tag);
     return (req << tag) >> (tag + ((int)std::log2(blockSize)));
 }
 
