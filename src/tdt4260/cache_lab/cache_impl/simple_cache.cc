@@ -17,6 +17,8 @@ SimpleCache::SimpleCache(int size, int blockSize, int associativity,
 {
     numEntries = this->size / this->blockSize;
     numSets = this->numEntries / this->associativity;
+    DPRINTF(TDTSimpleCache, "Debug: numEntries: %d, numSets: %d\n", numEntries, numSets);
+    
 
     // allocate entries for all sets and ways
     for (int i = 0; i < this->numSets; i++) {
