@@ -49,9 +49,17 @@ static const int BLOCK_SIZE = SIZE / BLOCKS;
 static void
 matmul_block_l1(int start_i, int start_j, int start_k)
 {
-        for (int i = start_i; i < start_i + L1_BLOCK_SIZE || i < SIZE; i++) {
-                for (int k = start_k; k < start_k + L1_BLOCK_SIZE || k < SIZE; k++) {
-                        for (int j = start_j; j < start_j + L1_BLOCK_SIZE || j < SIZE; j++) {
+        int max_i = start_i + L1_BLOCK_SIZE;
+        int max_j = start_j + L1_BLOCK_SIZE;
+        int max_k = start_k + L1_BLOCK_SIZE;
+
+        if (max_i > SIZE) max_i = SIZE;
+        if (max_j > SIZE) max_j = SIZE;
+        if (max_k > SIZE) max_k = SIZE;
+        
+        for (int i = start_i; i < start_i + L1_BLOCK_SIZE; i++) {
+                for (int k = start_k; k < start_k + L1_BLOCK_SIZE; k++) {
+                        for (int j = start_j; j < start_j + L1_BLOCK_SIZE; j++) {
                                 mat_c[i][j] += mat_a[i][k] * mat_b[k][j];
                         }
                 }
@@ -63,9 +71,9 @@ matmul_block_l1(int start_i, int start_j, int start_k)
 static void
 matmul_block_l2(int start_i, int start_j, int start_k)
 {
-        for (int i = start_i; i < start_i + L2_BLOCK_SIZE || i < SIZE; i += L1_BLOCK_SIZE) {
-                for (int k = start_k; k < start_k + L2_BLOCK_SIZE || k < SIZE; k += L1_BLOCK_SIZE) {
-                        for (int j = start_j; j < start_j + L2_BLOCK_SIZE || j < SIZE; j += L1_BLOCK_SIZE) {
+        for (int i = start_i; i < start_i + L2_BLOCK_SIZE; i += L1_BLOCK_SIZE) {
+                for (int k = start_k; k < start_k + L2_BLOCK_SIZE; k += L1_BLOCK_SIZE) {
+                        for (int j = start_j; j < start_j + L2_BLOCK_SIZE; j += L1_BLOCK_SIZE) {
                                 printf("L2: (%d, %d, %d)\n", i, j, k);
                                 matmul_block_l1(i, j, k);
                         }
