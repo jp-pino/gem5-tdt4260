@@ -26,6 +26,10 @@
 #define L2_BLOCK_SIZE 1024
 #endif
 
+#ifndef OPTIMIZE
+#define OPTIMIZE 0
+#endif
+
 /* HINT: The Makefile allows you to specify L1 and L2 block sizes as
  * compile time options.These may be specified when calling make,
  * e.g. "make L1_BLOCK_SIZE=256 L2_BLOCK_SIZE=1024". If the block
@@ -41,9 +45,26 @@ static double mat_c[SIZE][SIZE];
 static double mat_ref[SIZE][SIZE];
 
 
-static const int BLOCKS = 4;
-static const int BLOCK_SIZE = SIZE / BLOCKS;
+/**
+ * Reference implementation of the matrix multiply algorithm. Used to
+ * verify the answer from matmul_opt. Do NOT change this function.
+ */
+static void
+matmul_ref()
+{
+        int i, j, k;
 
+        for (j = 0; j < SIZE; j++) {
+                for (i = 0; i < SIZE; i++) {
+                        for (k = 0; k < SIZE; k++) {
+                                mat_ref[i][j] += mat_a[i][k] * mat_b[k][j];
+                        }
+                }
+        }
+}
+
+
+#if OPTIMIZE == 1
 
 // Match stride to L1_BLOCK_SIZE
 static void
@@ -104,23 +125,25 @@ matmul_opt()
         }
 }
 
+#else
+
 /**
- * Reference implementation of the matrix multiply algorithm. Used to
- * verify the answer from matmul_opt. Do NOT change this function.
+ * Matrix multiplication. This is the procedure you should try to
+ * optimize.
  */
 static void
-matmul_ref()
+matmul_opt()
 {
-        int i, j, k;
+        /* TASK: Implement your optimized matrix multiplication
+         * here. It should calculate mat_c := mat_a * mat_b. See
+         * matmul_ref() for a reference solution.
+         */
 
-        for (j = 0; j < SIZE; j++) {
-                for (i = 0; i < SIZE; i++) {
-                        for (k = 0; k < SIZE; k++) {
-                                mat_ref[i][j] += mat_a[i][k] * mat_b[k][j];
-                        }
-                }
-        }
+        // Start with arbitrary big blocks
+        matmul_ref();
 }
+#endif
+
 
 /**
  * Function used to verify the result. No need to change this one.
