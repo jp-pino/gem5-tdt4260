@@ -18,6 +18,14 @@
 /* Size of the matrices to multiply */
 #define SIZE 200
 
+#ifndef L1_BLOCK_SIZE
+#define L1_BLOCK_SIZE 256
+#endif
+
+#ifndef L2_BLOCK_SIZE
+#define L2_BLOCK_SIZE 1024
+#endif
+
 /* HINT: The Makefile allows you to specify L1 and L2 block sizes as
  * compile time options.These may be specified when calling make,
  * e.g. "make L1_BLOCK_SIZE=256 L2_BLOCK_SIZE=1024". If the block
@@ -32,6 +40,40 @@ static double mat_b[SIZE][SIZE];
 static double mat_c[SIZE][SIZE];
 static double mat_ref[SIZE][SIZE];
 
+
+static const int BLOCKS = 4;
+static const int BLOCK_SIZE = SIZE / BLOCKS;
+
+
+// Match stride to L1_BLOCK_SIZE
+matmul_block_l1(int start_i, int start_j, int start_k)
+{
+        int i, j, k;
+
+        for (i = start_i; i < start_i + L1_BLOCK_SIZE; i++) {
+                for (k = start_k; k < start_k + L1_BLOCK_SIZE; k++) {
+                        for (j = start_j; j < start_j + L1_BLOCK_SIZE; j++) {
+                                mat_c[i][j] += mat_a[i][k] * mat_b[k][j];
+                        }
+                }
+        }
+}
+
+
+// Match stride to L2_BLOCK_SIZE
+matmul_block_l2(int start_i, int start_j, int start_k)
+{
+        int i, j, k;
+
+        for (i = start_i; i < start_i + L2_BLOCK_SIZE; i += L1_BLOCK_SIZE) {
+                for (k = start_k; k < start_k + L2_BLOCK_SIZE; k += L1_BLOCK_SIZE) {
+                        for (j = start_j; j < start_j + L2_BLOCK_SIZE; j += L1_BLOCK_SIZE) {
+                                matmul_block_l1(i, j, k);
+                        }
+                }
+        }
+}
+
 /**
  * Matrix multiplication. This is the procedure you should try to
  * optimize.
@@ -45,12 +87,13 @@ matmul_opt()
          */
         int i, j, k;
 
-        for (j = 0; j < SIZE; j++) {
-            for (i = 0; i < SIZE; i++) {
-                for (k = 0; k < SIZE; k++) {
-                    mat_c[i][j] += mat_a[i][k] * mat_b[k][j];
+        // Start with arbitrary big blocks
+        for (i = 0; i < SIZE; i += BLOCKS) {
+                for (k = 0; k < SIZE; k += BLOCKS) {
+                        for (j = 0; j < SIZE; j += BLOCKS) {
+                                matmul_block_l2(i, j, k);
+                        }
                 }
-            }
         }
 }
 
