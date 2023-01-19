@@ -46,14 +46,13 @@ static const int BLOCK_SIZE = SIZE / BLOCKS;
 
 
 // Match stride to L1_BLOCK_SIZE
-void
+static void
 matmul_block_l1(int start_i, int start_j, int start_k)
 {
-        int i, j, k;
-
-        for (i = start_i; i < start_i + L1_BLOCK_SIZE; i++) {
-                for (k = start_k; k < start_k + L1_BLOCK_SIZE; k++) {
-                        for (j = start_j; j < start_j + L1_BLOCK_SIZE; j++) {
+        for (int i = start_i; i < start_i + L1_BLOCK_SIZE; i++) {
+                for (int k = start_k; k < start_k + L1_BLOCK_SIZE; k++) {
+                        for (int j = start_j; j < start_j + L1_BLOCK_SIZE; j++) {
+                                printf("L1: (%d, %d, %d)\n", i, j, k);
                                 mat_c[i][j] += mat_a[i][k] * mat_b[k][j];
                         }
                 }
@@ -62,14 +61,13 @@ matmul_block_l1(int start_i, int start_j, int start_k)
 
 
 // Match stride to L2_BLOCK_SIZE
-void
+static void
 matmul_block_l2(int start_i, int start_j, int start_k)
 {
-        int i, j, k;
-
-        for (i = start_i; i < start_i + L2_BLOCK_SIZE; i += L1_BLOCK_SIZE) {
-                for (k = start_k; k < start_k + L2_BLOCK_SIZE; k += L1_BLOCK_SIZE) {
-                        for (j = start_j; j < start_j + L2_BLOCK_SIZE; j += L1_BLOCK_SIZE) {
+        for (int i = start_i; i < start_i + L2_BLOCK_SIZE; i += L1_BLOCK_SIZE) {
+                for (int k = start_k; k < start_k + L2_BLOCK_SIZE; k += L1_BLOCK_SIZE) {
+                        for (int j = start_j; j < start_j + L2_BLOCK_SIZE; j += L1_BLOCK_SIZE) {
+                                printf("L2: (%d, %d, %d)\n", i, j, k);
                                 matmul_block_l1(i, j, k);
                         }
                 }
@@ -87,12 +85,12 @@ matmul_opt()
          * here. It should calculate mat_c := mat_a * mat_b. See
          * matmul_ref() for a reference solution.
          */
-        int i, j, k;
 
         // Start with arbitrary big blocks
-        for (i = 0; i < SIZE; i += L2_BLOCK_SIZE) {
-                for (k = 0; k < SIZE; k += L2_BLOCK_SIZE) {
-                        for (j = 0; j < SIZE; j += L2_BLOCK_SIZE) {
+        for (int i = 0; i < SIZE; i += L2_BLOCK_SIZE) {
+                for (int k = 0; k < SIZE; k += L2_BLOCK_SIZE) {
+                        for (int j = 0; j < SIZE; j += L2_BLOCK_SIZE) {
+                                printf("MAIN: (%d, %d, %d)\n\n", i, j, k);
                                 matmul_block_l2(i, j, k);
                         }
                 }
