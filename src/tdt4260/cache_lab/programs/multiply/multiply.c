@@ -16,7 +16,7 @@
 #include <unistd.h>
 
 /* Size of the matrices to multiply */
-#define SIZE 200
+#define SIZE 1800
 
 #ifndef L1_BLOCK_SIZE
 #define L1_BLOCK_SIZE 256
@@ -46,6 +46,7 @@ static const int BLOCK_SIZE = SIZE / BLOCKS;
 
 
 // Match stride to L1_BLOCK_SIZE
+void
 matmul_block_l1(int start_i, int start_j, int start_k)
 {
         int i, j, k;
@@ -61,6 +62,7 @@ matmul_block_l1(int start_i, int start_j, int start_k)
 
 
 // Match stride to L2_BLOCK_SIZE
+void
 matmul_block_l2(int start_i, int start_j, int start_k)
 {
         int i, j, k;
