@@ -52,7 +52,6 @@ matmul_block_l1(int start_i, int start_j, int start_k)
         for (int i = start_i; i < start_i + L1_BLOCK_SIZE; i++) {
                 for (int k = start_k; k < start_k + L1_BLOCK_SIZE; k++) {
                         for (int j = start_j; j < start_j + L1_BLOCK_SIZE; j++) {
-                                printf("L1: (%d, %d, %d)\n", i, j, k);
                                 mat_c[i][j] += mat_a[i][k] * mat_b[k][j];
                         }
                 }
