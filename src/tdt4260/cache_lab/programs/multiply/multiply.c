@@ -90,9 +90,9 @@ matmul_opt()
         int i, j, k;
 
         // Start with arbitrary big blocks
-        for (i = 0; i < SIZE; i += BLOCKS) {
-                for (k = 0; k < SIZE; k += BLOCKS) {
-                        for (j = 0; j < SIZE; j += BLOCKS) {
+        for (i = 0; i < SIZE; i += BLOCK_SIZE) {
+                for (k = 0; k < SIZE; k += BLOCK_SIZE) {
+                        for (j = 0; j < SIZE; j += BLOCK_SIZE) {
                                 matmul_block_l2(i, j, k);
                         }
                 }
