@@ -95,7 +95,6 @@ matmul_block_l2(int start_i, int start_j, int start_k)
         for (int i = start_i; i < start_i + L2_BLOCK_SIZE; i += L1_BLOCK_SIZE) {
                 for (int k = start_k; k < start_k + L2_BLOCK_SIZE; k += L1_BLOCK_SIZE) {
                         for (int j = start_j; j < start_j + L2_BLOCK_SIZE; j += L1_BLOCK_SIZE) {
-                                printf("L2: (%d, %d, %d)\n", i, j, k);
                                 matmul_block_l1(i, j, k);
                         }
                 }
@@ -118,7 +117,6 @@ matmul_opt()
         for (int i = 0; i < SIZE; i += L2_BLOCK_SIZE) {
                 for (int k = 0; k < SIZE; k += L2_BLOCK_SIZE) {
                         for (int j = 0; j < SIZE; j += L2_BLOCK_SIZE) {
-                                printf("MAIN: (%d, %d, %d)\n\n", i, j, k);
                                 matmul_block_l2(i, j, k);
                         }
                 }
