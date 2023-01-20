@@ -15,8 +15,19 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+// arcane black magic to get gem5 to reset and dump stats. also acts like memory barrier for the compiler
+#define GEM5_DUMPSTATS  __asm__ __volatile__ (".word 0x040F; .word 0x0041;" : : "D" (0), "S" (0) :"memory")
+#define GEM5_RESETSTATS __asm__ __volatile__ (".word 0x040F; .word 0x0040;" : : "D" (0), "S" (0) :"memory")
+/* For ghidra disassembly to work add the following to Ghidra/Processors/x86/data/languages/ia.sinc :
+define pcodeop Gem5DumpStats;
+:GEM5_DUMPSTATS          is byte=0x0F; byte=0x04; byte=0x41; byte=0x00 { Gem5DumpStats(); }
+
+define pcodeop Gem5ResetStats;
+:GEM5_RESETSTATS          is byte=0x0F; byte=0x04; byte=0x40; byte=0x00 { Gem5ResetStats(); }
+ */
+
 /* Size of the matrices to multiply */
-#define SIZE 1800
+#define SIZE 200
 
 #ifndef L1_BLOCK_SIZE
 #define L1_BLOCK_SIZE 256
@@ -113,6 +124,7 @@ matmul_opt()
          * matmul_ref() for a reference solution.
          */
 
+        GEM5_RESETSTATS;
         // Start with arbitrary big blocks
         for (int i = 0; i < SIZE; i += L2_BLOCK_SIZE) {
                 for (int k = 0; k < SIZE; k += L2_BLOCK_SIZE) {
@@ -121,6 +133,7 @@ matmul_opt()
                         }
                 }
         }
+        GEM5_DUMPSTATS;
 }
 
 #else
