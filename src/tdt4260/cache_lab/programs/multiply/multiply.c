@@ -27,7 +27,7 @@
 #endif
 
 #ifndef OPTIMIZE
-#define OPTIMIZE 0
+#define OPTIMIZE 1
 #endif
 
 /* HINT: The Makefile allows you to specify L1 and L2 block sizes as
@@ -138,7 +138,15 @@ matmul_opt()
          */
 
         // Start with arbitrary big blocks
-        matmul_ref();
+        int i, j, k;
+
+        for (j = 0; j < SIZE; j++) {
+                for (i = 0; i < SIZE; i++) {
+                        for (k = 0; k < SIZE; k++) {
+                                mat_c[i][j] += mat_a[i][k] * mat_b[k][j];
+                        }
+                }
+        }
 }
 #endif
 
