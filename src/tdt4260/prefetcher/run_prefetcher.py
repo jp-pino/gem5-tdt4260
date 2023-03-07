@@ -14,7 +14,7 @@ for x in range(num_benchmarks):
     output_dir = f"prefetcher_out_{x}"
     if (os.path.exists(f"prefetcher_out_{x}")):
         shutil.rmtree(f"prefetcher_out_{x}")
-    run_ref = f"{gem5_bin} -r --outdir={output_dir} {config} --iteration {x}"
+    run_ref = f"{gem5_bin} -r --debug-flags=TDTSimpleCache --outdir={output_dir} {config} --iteration {x}"
     os.system(run_ref)
     os.chdir(cwd)
 
@@ -32,7 +32,7 @@ for x in range(num_benchmarks):
                 continue
             if "ipc" in line[0]:
                 ipcs.append(line[1])
-            if "prefetcher" in line[0]:# or "cache" in line[0]:
+            if "prefetcher" in line[0]:  # or "cache" in line[0]:
                 data.append((line[0], line[1]))
     others.append(data)
 
@@ -52,5 +52,3 @@ with open(result_dst, "w") as out:
         for y in others[x]:
             out.write(f"{y[0]}: {y[1]}\n")
         out.write("\n\n\n")
-
-        

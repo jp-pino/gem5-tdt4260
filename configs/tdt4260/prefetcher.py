@@ -1,3 +1,4 @@
+# autopep8: off
 import argparse
 import sys
 import os
@@ -68,7 +69,7 @@ cpu.numThreads = 1
 
 system = System(cpu = [cpu(cpu_id=0)],
                 mem_mode = mem,
-                mem_ranges = [AddrRange("3GB")],
+                mem_ranges = [AddrRange("8GB")],
                 cache_line_size = "64")
 
 system.voltage_domain = VoltageDomain(voltage = "3.3V")
@@ -121,3 +122,4 @@ print(f"Simulating gem5 with custom configuration, "\
       f"max_inst: {args.maxinsts}\n")
 root = Root(full_system = False, system = system)
 Simulation.run(args, root, system, futureclass)
+# autopep8: on

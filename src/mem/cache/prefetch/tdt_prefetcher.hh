@@ -1,6 +1,8 @@
 #ifndef __MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__
 #define __MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__
 
+#include <functional>
+
 #include "base/sat_counter.hh"
 #include "base/types.hh"
 #include "mem/cache/prefetch/associative_set.hh"
@@ -39,6 +41,15 @@ class TDTPrefetcherHashedSetAssociative : public SetAssociative
         ~TDTPrefetcherHashedSetAssociative() = default;
 };
 
+// custom hash can be a standalone function object:
+struct RecentRequestsHash
+{
+    std::size_t operator()(Addr const& addr) const noexcept
+    {
+        return (addr & 0xFF) ^ ((addr >> 8) & 0xFF) ;
+    }
+};
+
 class TDTPrefetcher : public Queued
 {
 
@@ -72,25 +83,30 @@ class TDTPrefetcher : public Queued
 
     };
 
-    const int SCOREMAX = 3;
-    const int ROUNDMAX = 3;
-    const int BADSCORE = 3;
+    static const int SCOREMAX = 3;
+    static const int ROUNDMAX = 3;
+    static const int BADSCORE = 3;
+    static const int N_OFFSETS = 52;
 
     // MK begin
-    const int offsets [52] = {1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 25, 27, 30, 32, 36, 40, 45,
-    48, 50, 54, 60, 64, 72, 75, 80, 81, 90, 96, 100, 108, 120, 125, 128, 135,
-    144, 150, 160, 162, 180, 192, 200, 216, 225, 240, 243, 250, 256};
+    static const int OFFSETS[N_OFFSETS];
 
     typedef AssociativeSet<TDTEntry> PCTable;
     std::unordered_map<int, PCTable> pcTables;
-    std::map<int, int> scoreBoard;
+
+    uint64_t bestOffset;
+    uint64_t currentRound;
+    bool prefetching;
+
+    int scoreBoard[N_OFFSETS] = { 0 };
+    std::unordered_map<Addr, uint16_t, RecentRequestsHash> rrTable;
 
     PCTable* findTable(int context);
-
     PCTable* allocateNewContext(int context);
 
     void scoreBoardInit();
     int getBestOffset();
+    void notifyFill(const PacketPtr &pkt) override;
 
   public:
     TDTPrefetcher(const TDTPrefetcherParams &p);
@@ -102,5 +118,6 @@ class TDTPrefetcher : public Queued
 
 } //namespace prefetch
 } //namespace gem5
+
 
 #endif //_MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__

@@ -12,5 +12,3 @@ Source('simple_mem.cc')
 DebugFlag('AllAddr')
 DebugFlag('AllCacheLines')
 DebugFlag('TDTSimpleCache')
-
-

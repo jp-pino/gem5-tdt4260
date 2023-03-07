@@ -1,5 +1,8 @@
 #include "mem/cache/prefetch/tdt_prefetcher.hh"
 
+#include <iomanip>
+
+#include "debug/TDTSimpleCache.hh"
 #include "mem/cache/prefetch/associative_set_impl.hh"
 #include "mem/cache/replacement_policies/base.hh"
 #include "params/TDTPrefetcher.hh"
@@ -10,6 +13,23 @@ namespace gem5
 GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
+
+std::ostream & operator<<(std::ostream &os, const std::unordered_map<Addr, uint16_t, RecentRequestsHash> &m)
+{
+    os << "[";
+    for (const auto &p : m)
+    {
+        os << "0x" << std::setw(2) << std::setfill('0') << std::hex << p.first << ": ";
+        os << std::dec << p.second << ' ';
+    }
+    os << "]";
+    return os;
+}
+
+const int TDTPrefetcher::OFFSETS[N_OFFSETS] = {
+    1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 25, 27, 30, 32, 36, 40, 45,
+    48, 50, 54, 60, 64, 72, 75, 80, 81, 90, 96, 100, 108, 120, 125, 128, 135,
+    144, 150, 160, 162, 180, 192, 200, 216, 225, 240, 243, 250, 256};
 
 TDTPrefetcher::TDTEntry::TDTEntry()
     : TaggedEntry()
@@ -25,10 +45,16 @@ TDTPrefetcher::TDTEntry::invalidate()
 
 TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
     : Queued(params),
+      bestOffset(0),
+      prefetching(false),
+      currentRound(0),
       pcTableInfo(params.table_assoc, params.table_entries,
                   params.table_indexing_policy,
                   params.table_replacement_policy)
-    {}
+    {
+        scoreBoardInit();
+        rrTable.clear();
+    }
 
 TDTPrefetcher::PCTable*
 TDTPrefetcher::findTable(int context)
@@ -60,8 +86,38 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     Addr access_pc = pfi.getPC();
     int context = 0;
 
+    // Reset all scores to 0 at the start of the learning round
+    if (currentRound == 0) {
+        scoreBoardInit();
+    }
+
+    // Increment scores
+    for (int i = 0; i < N_OFFSETS; i++) {
+        if (rrTable[access_addr - OFFSETS[i]] == ((access_addr >> 8) & 0xFFF)) {
+            scoreBoard[i]++;
+
+            // Early stop
+            if (scoreBoard[i] >= SCOREMAX) {
+                currentRound = 0;
+                bestOffset = scoreBoard[i];
+                break;
+            }
+        }
+    }
+
+    currentRound++;
+    if (currentRound >= ROUNDMAX) {
+        currentRound = 0;
+        bestOffset = getBestOffset();
+        prefetching = bestOffset > BADSCORE;
+    }
+
     // Next line prefetching
-    addresses.push_back(AddrPriority(access_addr + blkSize, 0));
+    if (prefetching) {
+        DPRINTF(TDTSimpleCache, "Prefetching address: 0x%08x\n", (access_addr + bestOffset));
+        addresses.push_back(AddrPriority(access_addr + bestOffset, 0));
+    }
+
 
     // Get matching storage of entries
     // Context is 0 due to single-threaded application
@@ -85,27 +141,43 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     pcTable->insertEntry(access_pc, false, victim);
 }
 
+void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
+    std::stringstream ss;
+
+
+    if (hasBeenPrefetched(pkt->getAddr(), false)) {
+        rrTable[pkt->getAddr()] = ((pkt->getAddr() - bestOffset) >> 8) & 0xFFF;
+    }
+
+    if (!prefetching) {
+        rrTable[pkt->getAddr()] = (pkt->getAddr() >> 8) & 0xFFF;
+    }
+
+    ss << "RecentRequestsTable: [" << rrTable << "]";
+    DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (address: 0x%08x) (%s)\n",
+        pkt->cmd.isHWPrefetch() || pkt->cmd.isSWPrefetch(), pkt->getAddr(), ss.str().c_str());
+}
 
 void
 TDTPrefetcher::scoreBoardInit() {
-    int len = sizeof(offsets) / sizeof(int);
-    for (int i = 0; i < len; i++) {
-        scoreBoard[offsets[i]] = 0;
+    DPRINTF(TDTSimpleCache, "Initializing scoreBoard\n");
+    for (int i = 0; i < N_OFFSETS; i++) {
+        scoreBoard[i] = 0;
     }
 }
 
 int
 TDTPrefetcher::getBestOffset() {
-    int len = sizeof(offsets) / sizeof(int);
     int max = 0, index = 0;
-    for (int i = 0; i < len; i++) {
-        int score = scoreBoard[offsets[i]];
+    for (int i = 0; i < N_OFFSETS; i++) {
+        int score = scoreBoard[i];
         if (max < score) {
             max = score;
             index = i;
         }
     }
-    return offsets[index];
+    DPRINTF(TDTSimpleCache, "Get Best Offset (index: %d offset: %d)\n", index, OFFSETS[index]);
+    return OFFSETS[index];
 }
 
 uint32_t
