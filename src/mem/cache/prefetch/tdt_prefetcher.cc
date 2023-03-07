@@ -85,6 +85,29 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     pcTable->insertEntry(access_pc, false, victim);
 }
 
+
+void
+TDTPrefetcher::scoreBoardInit() {
+    int len = sizeof(offsets) / sizeof(int);
+    for (int i = 0; i < len; i++) {
+        scoreBoard[offsets[i]] = 0;
+    }
+}
+
+int
+TDTPrefetcher::getBestOffset() {
+    int len = sizeof(offsets) / sizeof(int);
+    int max = 0, index = 0;
+    for (int i = 0; i < len; i++) {
+        int score = scoreBoard[offsets[i]];
+        if (max < score) {
+            max = score;
+            index = i;
+        }
+    }
+    return offsets[index];
+}
+
 uint32_t
 TDTPrefetcherHashedSetAssociative::extractSet(const Addr pc) const
 {
