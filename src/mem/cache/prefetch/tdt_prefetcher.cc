@@ -143,9 +143,9 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     std::stringstream ss;
+    bool prefetched = hasBeenPrefetched(pkt->getAddr(), false);
 
-
-    if (hasBeenPrefetched(pkt->getAddr(), false)) {
+    if (prefetched) {
         rrTable[pkt->getAddr()] = ((pkt->getAddr() - bestOffset) >> 8) & 0xFFF;
     }
 
@@ -155,7 +155,7 @@ void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
 
     ss << "RecentRequestsTable: [" << rrTable << "]";
     DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (address: 0x%08x) (%s)\n",
-        pkt->cmd.isHWPrefetch() || pkt->cmd.isSWPrefetch(), pkt->getAddr(), ss.str().c_str());
+        prefetched, pkt->getAddr(), ss.str().c_str());
 }
 
 void
