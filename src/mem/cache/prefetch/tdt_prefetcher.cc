@@ -42,7 +42,7 @@ TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
         currentRound = 0;
         scoreBoardInit();
         for (int i = 0; i < N_RECENT_REQUESTS; i++) {
-            rrTable[0];
+            rrTable[i] = 0;
         }
     }
 
@@ -134,11 +134,13 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     std::stringstream ss;
     bool prefetched = hasBeenPrefetched(pkt->getAddr(), false) || hasBeenPrefetched(pkt->getAddr(), true);
-    uint64_t index = getIndexRR(pkt->getAddr());
+    uint64_t index;
 
     if (!prefetching) {
+        index = getIndexRR(pkt->getAddr());
         rrTable[index] = (pkt->getAddr() >> 8) & 0xFFF;
     } else if (prefetched && samePage((pkt->getAddr() - OFFSETS[bestOffset] * blkSize), pkt->getAddr())) {
+        index = getIndexRR(pkt->getAddr() - OFFSETS[bestOffset] * blkSize);
         rrTable[index] = ((pkt->getAddr() - OFFSETS[bestOffset] * blkSize) >> 8) & 0xFFF;
     }
 
@@ -149,8 +151,8 @@ void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     }
     ss << "]";
 
-    DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (address: 0x%08x) (%s)\n",
-        prefetched, pkt->getAddr(), ss.str().c_str());
+    DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (address: 0x%08x) (index: %d) (%s)\n",
+        prefetched, pkt->getAddr(), index, ss.str().c_str());
 }
 
 void
