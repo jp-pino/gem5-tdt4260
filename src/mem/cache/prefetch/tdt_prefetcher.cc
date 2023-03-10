@@ -14,18 +14,6 @@ GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
 
-std::ostream & operator<<(std::ostream &os, const std::unordered_map<Addr, uint16_t, RecentRequestsHash> &m)
-{
-    os << "[";
-    for (const auto &p : m)
-    {
-        os << "0x" << std::setw(2) << std::setfill('0') << std::hex << p.first << ": ";
-        os << std::dec << p.second << ' ';
-    }
-    os << "]";
-    return os;
-}
-
 const int TDTPrefetcher::OFFSETS[N_OFFSETS] = {
     1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 25, 27, 30, 32, 36, 40, 45,
     48, 50, 54, 60, 64, 72, 75, 80, 81, 90, 96, 100, 108, 120, 125, 128, 135,
@@ -45,15 +33,17 @@ TDTPrefetcher::TDTEntry::invalidate()
 
 TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
     : Queued(params),
-      bestOffset(0),
-      prefetching(false),
-      currentRound(0),
       pcTableInfo(params.table_assoc, params.table_entries,
                   params.table_indexing_policy,
                   params.table_replacement_policy)
     {
+        bestOffset = 0;
+        prefetching = false;
+        currentRound = 0;
         scoreBoardInit();
-        rrTable.clear();
+        for (int i = 0; i < N_RECENT_REQUESTS; i++) {
+            rrTable[0];
+        }
     }
 
 TDTPrefetcher::PCTable*
@@ -93,13 +83,13 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 
     // Increment scores
     for (int i = 0; i < N_OFFSETS; i++) {
-        if (rrTable[access_addr - OFFSETS[i]] == ((access_addr >> 8) & 0xFFF)) {
+        if (rrTable[getIndexRR(access_addr - OFFSETS[i] * blkSize)] == ((access_addr >> 8) & 0xFFF)) {
             scoreBoard[i]++;
 
             // Early stop
             if (scoreBoard[i] >= SCOREMAX) {
                 currentRound = 0;
-                bestOffset = scoreBoard[i];
+                bestOffset = i;
                 break;
             }
         }
@@ -109,13 +99,13 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     if (currentRound >= ROUNDMAX) {
         currentRound = 0;
         bestOffset = getBestOffset();
-        prefetching = bestOffset > BADSCORE;
+        prefetching = OFFSETS[bestOffset] > BADSCORE;
     }
 
     // Next line prefetching
     if (prefetching) {
-        DPRINTF(TDTSimpleCache, "Prefetching address: 0x%08x\n", (access_addr + bestOffset));
-        addresses.push_back(AddrPriority(access_addr + bestOffset, 0));
+        DPRINTF(TDTSimpleCache, "Prefetching address: 0x%08x\n", (access_addr + OFFSETS[bestOffset] * blkSize));
+        addresses.push_back(AddrPriority(access_addr + OFFSETS[bestOffset] * blkSize, 0));
     }
 
 
@@ -143,17 +133,22 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     std::stringstream ss;
-    bool prefetched = hasBeenPrefetched(pkt->getAddr(), false);
-
-    if (prefetched) {
-        rrTable[pkt->getAddr()] = ((pkt->getAddr() - bestOffset) >> 8) & 0xFFF;
-    }
+    bool prefetched = hasBeenPrefetched(pkt->getAddr(), false) || hasBeenPrefetched(pkt->getAddr(), true);
+    uint64_t index = getIndexRR(pkt->getAddr());
 
     if (!prefetching) {
-        rrTable[pkt->getAddr()] = (pkt->getAddr() >> 8) & 0xFFF;
+        rrTable[index] = (pkt->getAddr() >> 8) & 0xFFF;
+    } else if (prefetched && samePage((pkt->getAddr() - OFFSETS[bestOffset] * blkSize), pkt->getAddr())) {
+        rrTable[index] = ((pkt->getAddr() - OFFSETS[bestOffset] * blkSize) >> 8) & 0xFFF;
     }
 
-    ss << "RecentRequestsTable: [" << rrTable << "]";
+    ss << "RecentRequestsTable: [";
+    for (uint64_t i = 0; i < N_RECENT_REQUESTS; i++) {
+        ss << "(" << i << ": ";
+        ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << std::dec << rrTable[i] << ") ";
+    }
+    ss << "]";
+
     DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (address: 0x%08x) (%s)\n",
         prefetched, pkt->getAddr(), ss.str().c_str());
 }
@@ -177,7 +172,13 @@ TDTPrefetcher::getBestOffset() {
         }
     }
     DPRINTF(TDTSimpleCache, "Get Best Offset (index: %d offset: %d)\n", index, OFFSETS[index]);
-    return OFFSETS[index];
+    return index;
+}
+
+uint64_t
+TDTPrefetcher::getIndexRR(const Addr addr) const
+{
+    return (addr & (N_RECENT_REQUESTS - 1)) ^ ((addr >> 8) & (N_RECENT_REQUESTS - 1));
 }
 
 uint32_t

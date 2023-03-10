@@ -48,10 +48,10 @@ args.l3cache = True
 
 args.l1d_size = "48KiB"
 args.l1d_assoc = 12
-args.l1d_hwp_type = "TDTPrefetcher"
+# args.l1d_hwp_type = "TDTPrefetcher"
 
 args.l1i_size = "32KiB"
-args.l1i_hwp_type = "TDTPrefetcher"
+# args.l1i_hwp_type = "TDTPrefetcher"
 
 args.l2_size = "1280KiB" #1.25MiB
 args.l2_assoc = 20
@@ -59,7 +59,7 @@ args.l2_hwp_type = "TDTPrefetcher"
 
 args.l3_size = "3MiB"
 args.l3_assoc = 12
-args.l3_hwp_type = "TDTPrefetcher"
+# args.l3_hwp_type = "TDTPrefetcher"
 
 
 num_cpus = 1

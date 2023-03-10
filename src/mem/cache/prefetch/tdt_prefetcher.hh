@@ -41,15 +41,6 @@ class TDTPrefetcherHashedSetAssociative : public SetAssociative
         ~TDTPrefetcherHashedSetAssociative() = default;
 };
 
-// custom hash can be a standalone function object:
-struct RecentRequestsHash
-{
-    std::size_t operator()(Addr const& addr) const noexcept
-    {
-        return (addr & 0xFF) ^ ((addr >> 8) & 0xFF) ;
-    }
-};
-
 class TDTPrefetcher : public Queued
 {
 
@@ -87,6 +78,7 @@ class TDTPrefetcher : public Queued
     static const int ROUNDMAX = 3;
     static const int BADSCORE = 3;
     static const int N_OFFSETS = 52;
+    static const int N_RECENT_REQUESTS = (1 << 8);
 
     // MK begin
     static const int OFFSETS[N_OFFSETS];
@@ -99,7 +91,7 @@ class TDTPrefetcher : public Queued
     bool prefetching;
 
     int scoreBoard[N_OFFSETS] = { 0 };
-    std::unordered_map<Addr, uint16_t, RecentRequestsHash> rrTable;
+    Addr rrTable[N_RECENT_REQUESTS] = { 0 };
 
     PCTable* findTable(int context);
     PCTable* allocateNewContext(int context);
@@ -107,6 +99,8 @@ class TDTPrefetcher : public Queued
     void scoreBoardInit();
     int getBestOffset();
     void notifyFill(const PacketPtr &pkt) override;
+
+    uint64_t getIndexRR(const Addr pc) const;
 
   public:
     TDTPrefetcher(const TDTPrefetcherParams &p);
