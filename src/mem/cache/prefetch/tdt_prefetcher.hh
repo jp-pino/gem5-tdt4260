@@ -74,9 +74,9 @@ class TDTPrefetcher : public Queued
 
     };
 
-    static const int SCOREMAX = 3;
-    static const int ROUNDMAX = 3;
-    static const int BADSCORE = 3;
+    static const int SCOREMAX = 31;
+    static const int ROUNDMAX = 100;
+    static const int BADSCORE = 1;
     static const int N_OFFSETS = 52;
     static const int N_RECENT_REQUESTS = (1 << 8);
 

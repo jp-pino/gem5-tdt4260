@@ -96,7 +96,7 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     }
 
     currentRound++;
-    if (currentRound >= ROUNDMAX) {
+    if (currentRound > ROUNDMAX) {
         currentRound = 0;
         bestOffset = getBestOffset();
         prefetching = OFFSETS[bestOffset] > BADSCORE;
