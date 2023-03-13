@@ -72,6 +72,7 @@ void
 TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
                                  std::vector<AddrPriority> &addresses)
 {
+    std::stringstream ss;
     Addr access_addr = pfi.getAddr();
     Addr access_pc = pfi.getPC();
     int context = 0;
@@ -83,7 +84,7 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 
     // Increment scores
     for (int i = 0; i < N_OFFSETS; i++) {
-        if (rrTable[getIndexRR(access_addr - OFFSETS[i] * blkSize)] == ((access_addr >> 8) & 0xFFF)) {
+        if (rrTable[getIndexRR(access_addr - OFFSETS[i] * blkSize)] == ((access_addr >> 8) & 0x0FFF)) {
             scoreBoard[i]++;
 
             // Early stop
@@ -94,6 +95,19 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
             }
         }
     }
+
+
+    ss << "RecentRequestsTable: [";
+    for (uint64_t i = 0; i < N_OFFSETS; i++) {
+        if (scoreBoard[i] > 0) {
+            ss << "(" << i << " -> " << OFFSETS[i] << ": ";
+            ss << scoreBoard[i] << ") ";
+        }
+    }
+    ss << "]";
+
+    DPRINTF(TDTSimpleCache, "Scores updated (address: 0x%08x) (%s)\n",
+        access_addr, ss.str().c_str());
 
     currentRound++;
     if (currentRound > ROUNDMAX) {
@@ -134,25 +148,36 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     std::stringstream ss;
     bool prefetched = hasBeenPrefetched(pkt->getAddr(), false) || hasBeenPrefetched(pkt->getAddr(), true);
-    uint64_t index;
+    uint64_t index, address;
+    int choice = 0;
 
     if (!prefetching) {
-        index = getIndexRR(pkt->getAddr());
-        rrTable[index] = (pkt->getAddr() >> 8) & 0xFFF;
+        choice = 1;
+        address = pkt->getAddr();
+        index = getIndexRR(address);
+        rrTable[index] = (address >> 8) & 0x0FFF;
     } else if (prefetched && samePage((pkt->getAddr() - OFFSETS[bestOffset] * blkSize), pkt->getAddr())) {
-        index = getIndexRR(pkt->getAddr() - OFFSETS[bestOffset] * blkSize);
-        rrTable[index] = ((pkt->getAddr() - OFFSETS[bestOffset] * blkSize) >> 8) & 0xFFF;
+        choice = 2;
+        address = pkt->getAddr() - OFFSETS[bestOffset] * blkSize;
+        index = getIndexRR(address);
+        rrTable[index] = (address >> 8) & 0x0FFF;
     }
 
-    ss << "RecentRequestsTable: [";
-    for (uint64_t i = 0; i < N_RECENT_REQUESTS; i++) {
-        ss << "(" << i << ": ";
-        ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << std::dec << rrTable[i] << ") ";
-    }
-    ss << "]";
+    if (choice != 0) {
+        ss << "RecentRequestsTable: [";
+        for (uint64_t i = 0; i < N_RECENT_REQUESTS; i++) {
+            if (rrTable[i] > 0) {
+                ss << "(" << i << ": ";
+                ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << std::dec << rrTable[i] << ") ";
+            }
+        }
+        ss << "]";
 
-    DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (address: 0x%08x) (index: %d) (%s)\n",
-        prefetched, pkt->getAddr(), index, ss.str().c_str());
+        DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (choice: %d) (address: 0x%08x) (index: %d) (%s)\n",
+            prefetched, choice, pkt->getAddr(), index, ss.str().c_str());
+    } else {
+        DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated");
+    }
 }
 
 void
