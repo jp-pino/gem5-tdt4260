@@ -36,26 +36,31 @@ TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
       pcTableInfo(params.table_assoc, params.table_entries,
                   params.table_indexing_policy,
                   params.table_replacement_policy)
-    {
-        bestOffset = 0;
-        prefetching = false;
-        currentRound = 0;
+{
+    bestOffset = 0;
+    prefetching = false;
+    currentRound = 0;
 
-        SCOREMAX = params.scoremax;
-        ROUNDMAX = params.roundmax;
-        BADSCORE = params.badscore;
+    SCOREMAX = params.scoremax;
+    ROUNDMAX = params.roundmax;
+    BADSCORE = params.badscore;
 
-        N_RECENT_REQUESTS = (1 << params.n_bits_recent_requests);
+    N_RECENT_REQUESTS = (1 << params.n_bits_recent_requests);
 
-        DPRINTF(TDTSimpleCache, "SCOREMAX: %d, ROUNDMAX: %d, BADSCORE: %d, N_RECENT_REQUESTS: %d\n",
-            SCOREMAX, ROUNDMAX, BADSCORE, N_RECENT_REQUESTS);
+    DPRINTF(TDTSimpleCache, "SCOREMAX: %d, ROUNDMAX: %d, BADSCORE: %d, N_RECENT_REQUESTS: %d\n",
+        SCOREMAX, ROUNDMAX, BADSCORE, N_RECENT_REQUESTS);
 
-        rrTable = new Addr[N_RECENT_REQUESTS];
-        scoreBoardInit();
-        for (int i = 0; i < N_RECENT_REQUESTS; i++) {
-            rrTable[i] = 0;
-        }
+    rrTable = new Addr[N_RECENT_REQUESTS];
+    scoreBoardInit();
+    for (int i = 0; i < N_RECENT_REQUESTS; i++) {
+        rrTable[i] = 0;
     }
+}
+
+TDTPrefetcher::~TDTPrefetcher() {
+    delete rrTable;
+}
+
 
 TDTPrefetcher::PCTable*
 TDTPrefetcher::findTable(int context)
@@ -157,14 +162,14 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     // *Add* new entry
     // All entries exist, you must replace previous with new data
     // Find replacement victim, update info
-    TDTEntry* victim = pcTable->findVictim(access_pc);
-    victim->lastAddr = access_addr;
-    pcTable->insertEntry(access_pc, false, victim);
+    // TDTEntry* victim = pcTable->findVictim(access_pc);
+    // victim->lastAddr = access_addr;
+    // pcTable->insertEntry(access_pc, false, victim);
 }
 
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     std::stringstream ss;
-    bool prefetched = hasBeenPrefetched(pkt->getAddr(), pkt->isSecure());
+    bool prefetched = hasBeenPrefetched(pkt->getAddr(), pkt->isSecure()) || pkt->cmd.isPrefetch();
     uint64_t index, address;
     int choice = 0;
 
@@ -193,7 +198,8 @@ void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
         DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (choice: %d) (address: 0x%08x) (index: %d) (%s)\n",
             prefetched, choice, pkt->getAddr(), index, ss.str().c_str());
     } else {
-        DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated (prefetched: %d)\n", prefetched);
+        DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated (prefetched: %d) (address: 0x%08x)\n",
+            prefetched, pkt->getAddr());
     }
 }
 

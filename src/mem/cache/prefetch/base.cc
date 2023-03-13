@@ -48,6 +48,7 @@
 #include <cassert>
 
 #include "base/intmath.hh"
+#include "debug/TDTSimpleCache.hh"
 #include "mem/cache/base.hh"
 #include "params/BasePrefetcher.hh"
 #include "sim/system.hh"
@@ -86,6 +87,9 @@ Base::PrefetchInfo::PrefetchInfo(PrefetchInfo const &pfi, Addr addr)
 void
 Base::PrefetchListener::notify(const PacketPtr &pkt)
 {
+    DPRINTFR(TDTSimpleCache, "%s: Notify (0x%08x) isFill: %d hasBeenPrefetched: %d\n",
+        this->name, pkt->getAddr(), isFill, parent.hasBeenPrefetched(pkt->getAddr(), pkt->isSecure()));
+
     if (isFill) {
         parent.notifyFill(pkt);
     } else {
@@ -158,7 +162,7 @@ Base::StatGroup::StatGroup(statistics::Group *parent)
 }
 
 bool
-Base::observeAccess(const PacketPtr &pkt, bool miss) const
+Base:: observeAccess(const PacketPtr &pkt, bool miss) const
 {
     bool fetch = pkt->req->isInstFetch();
     bool read = pkt->isRead();
@@ -254,6 +258,7 @@ Base::probeNotify(const PacketPtr &pkt, bool miss)
     if (hasBeenPrefetched(pkt->getAddr(), pkt->isSecure())) {
         usefulPrefetches += 1;
         prefetchStats.pfUseful++;
+        DPRINTF(TDTSimpleCache, "Has been prefetched. Useful (0x%08x)\n", pkt->getAddr());
         if (miss)
             // This case happens when a demand hits on a prefetched line
             // that's not in the requested coherency state.

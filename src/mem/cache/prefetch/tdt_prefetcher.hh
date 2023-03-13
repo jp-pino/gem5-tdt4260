@@ -104,6 +104,7 @@ class TDTPrefetcher : public Queued
 
   public:
     TDTPrefetcher(const TDTPrefetcherParams &p);
+    ~TDTPrefetcher();
 
     void calculatePrefetch(const PrefetchInfo &pf1,
                            std::vector<AddrPriority> &addresses) override;
