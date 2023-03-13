@@ -40,6 +40,17 @@ TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
         bestOffset = 0;
         prefetching = false;
         currentRound = 0;
+
+        SCOREMAX = params.scoremax;
+        ROUNDMAX = params.roundmax;
+        BADSCORE = params.badscore;
+
+        N_RECENT_REQUESTS = (1 << params.n_bits_recent_requests);
+
+        DPRINTF(TDTSimpleCache, "SCOREMAX: %d, ROUNDMAX: %d, BADSCORE: %d, N_RECENT_REQUESTS: %d\n",
+            SCOREMAX, ROUNDMAX, BADSCORE, N_RECENT_REQUESTS);
+
+        rrTable = new Addr[N_RECENT_REQUESTS];
         scoreBoardInit();
         for (int i = 0; i < N_RECENT_REQUESTS; i++) {
             rrTable[i] = 0;
@@ -76,11 +87,13 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     Addr access_addr = pfi.getAddr();
     Addr access_pc = pfi.getPC();
     int context = 0;
+    bool stop = false;
 
     // Reset all scores to 0 at the start of the learning round
     if (currentRound == 0) {
         scoreBoardInit();
     }
+
 
     // Increment scores
     for (int i = 0; i < N_OFFSETS; i++) {
@@ -89,15 +102,16 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 
             // Early stop
             if (scoreBoard[i] >= SCOREMAX) {
-                currentRound = 0;
+                stop = true;
                 bestOffset = i;
+                prefetching = true;
                 break;
             }
         }
     }
 
 
-    ss << "RecentRequestsTable: [";
+    ss << "Scores Table: [";
     for (uint64_t i = 0; i < N_OFFSETS; i++) {
         if (scoreBoard[i] > 0) {
             ss << "(" << i << " -> " << OFFSETS[i] << ": ";
@@ -109,11 +123,14 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     DPRINTF(TDTSimpleCache, "Scores updated (address: 0x%08x) (%s)\n",
         access_addr, ss.str().c_str());
 
+
+    // Increment round
     currentRound++;
-    if (currentRound > ROUNDMAX) {
+
+    if (stop || currentRound > ROUNDMAX) {
         currentRound = 0;
         bestOffset = getBestOffset();
-        prefetching = OFFSETS[bestOffset] > BADSCORE;
+        prefetching = scoreBoard[bestOffset] > BADSCORE;
     }
 
     // Next line prefetching
@@ -147,7 +164,7 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
     std::stringstream ss;
-    bool prefetched = hasBeenPrefetched(pkt->getAddr(), false) || hasBeenPrefetched(pkt->getAddr(), true);
+    bool prefetched = hasBeenPrefetched(pkt->getAddr(), pkt->isSecure());
     uint64_t index, address;
     int choice = 0;
 
@@ -176,7 +193,7 @@ void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
         DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (choice: %d) (address: 0x%08x) (index: %d) (%s)\n",
             prefetched, choice, pkt->getAddr(), index, ss.str().c_str());
     } else {
-        DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated");
+        DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated (prefetched: %d)\n", prefetched);
     }
 }
 

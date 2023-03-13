@@ -74,11 +74,11 @@ class TDTPrefetcher : public Queued
 
     };
 
-    static const int SCOREMAX = 31;
-    static const int ROUNDMAX = 100;
-    static const int BADSCORE = 1;
+    int SCOREMAX = 31;
+    int ROUNDMAX = 100;
+    int BADSCORE = 1;
     static const int N_OFFSETS = 52;
-    static const int N_RECENT_REQUESTS = (1 << 8);
+    int N_RECENT_REQUESTS = (1 << 8);
 
     // MK begin
     static const int OFFSETS[N_OFFSETS];
@@ -91,7 +91,7 @@ class TDTPrefetcher : public Queued
     bool prefetching;
 
     int scoreBoard[N_OFFSETS] = { 0 };
-    Addr rrTable[N_RECENT_REQUESTS] = { 0 };
+    Addr* rrTable;
 
     PCTable* findTable(int context);
     PCTable* allocateNewContext(int context);

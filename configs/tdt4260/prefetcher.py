@@ -61,6 +61,11 @@ args.l3_size = "3MiB"
 args.l3_assoc = 12
 # args.l3_hwp_type = "TDTPrefetcher"
 
+n_bits_recent_requests = 8
+scoremax = 31
+roundmax = 100
+badscore = 1
+
 
 num_cpus = 1
 
