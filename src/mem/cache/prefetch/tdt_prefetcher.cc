@@ -40,15 +40,17 @@ TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
     bestOffset = 0;
     prefetching = false;
     currentRound = 0;
+    currentIndex = 0;
 
     SCOREMAX = params.scoremax;
     ROUNDMAX = params.roundmax;
     BADSCORE = params.badscore;
+    DEGREE = params.degree;
 
     N_RECENT_REQUESTS = (1 << params.n_bits_recent_requests);
 
-    DPRINTF(TDTSimpleCache, "SCOREMAX: %d, ROUNDMAX: %d, BADSCORE: %d, N_RECENT_REQUESTS: %d\n",
-        SCOREMAX, ROUNDMAX, BADSCORE, N_RECENT_REQUESTS);
+    DPRINTF(TDTSimpleCache, "SCOREMAX: %d, ROUNDMAX: %d, BADSCORE: %d, N_RECENT_REQUESTS: %d, DEGREE: %d\n",
+        SCOREMAX, ROUNDMAX, BADSCORE, N_RECENT_REQUESTS, DEGREE);
 
     rrTable = new Addr[N_RECENT_REQUESTS];
     scoreBoardInit();
@@ -85,6 +87,58 @@ TDTPrefetcher::allocateNewContext(int context)
 }
 
 void
+TDTPrefetcher::processNotifications() {
+    std::stringstream ss;
+
+    while (!notifications.empty()) {
+        // Get notification
+        auto notification = notifications.front();
+
+        // Extract packet information
+        Addr pktAddress = std::get<0>(notification);
+        bool pktSecure = std::get<1>(notification);
+
+        // Remove from queue
+        notifications.pop();
+
+        // Update RRTable algorithm
+        bool prefetched = hasBeenPrefetched(pktAddress, pktSecure);
+        uint64_t index, address;
+        int choice = 0;
+
+        if (!prefetching) {
+            choice = 1;
+            address = pktAddress;
+            index = getIndexRR(address);
+            rrTable[index] = (address >> 8) & 0x0FFF;
+        } else if (prefetched && samePage((pktAddress - OFFSETS[bestOffset] * blkSize), pktAddress)) {
+            choice = 2;
+            address = pktAddress - OFFSETS[bestOffset] * blkSize;
+            index = getIndexRR(address);
+            rrTable[index] = (address >> 8) & 0x0FFF;
+        }
+
+        if (choice != 0) {
+            ss << "RecentRequestsTable: [";
+            for (uint64_t i = 0; i < N_RECENT_REQUESTS; i++) {
+                if (rrTable[i] > 0) {
+                    ss << "(" << i << ": ";
+                    ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << std::dec << rrTable[i] << ") ";
+                }
+            }
+            ss << "]";
+
+            DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (choice: %d) (address: 0x%08x) (index: %d) (%s)\n",
+                prefetched, choice, pktAddress, index, ss.str().c_str());
+        } else {
+            DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated (prefetched: %d) (address: 0x%08x)\n",
+                prefetched, pktAddress);
+        }
+    }
+
+}
+
+void
 TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
                                  std::vector<AddrPriority> &addresses)
 {
@@ -94,24 +148,24 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     int context = 0;
     bool stop = false;
 
+    // Process all notifications
+    processNotifications();
+
     // Reset all scores to 0 at the start of the learning round
-    if (currentRound == 0) {
+    if (currentRound == 0 && currentIndex == 0) {
         scoreBoardInit();
     }
 
 
     // Increment scores
-    for (int i = 0; i < N_OFFSETS; i++) {
-        if (rrTable[getIndexRR(access_addr - OFFSETS[i] * blkSize)] == ((access_addr >> 8) & 0x0FFF)) {
-            scoreBoard[i]++;
+    if (rrTable[getIndexRR(access_addr - OFFSETS[currentIndex] * blkSize)] == ((access_addr >> 8) & 0x0FFF)) {
+        scoreBoard[currentIndex]++;
 
-            // Early stop
-            if (scoreBoard[i] >= SCOREMAX) {
-                stop = true;
-                bestOffset = i;
-                prefetching = true;
-                break;
-            }
+        // Early stop
+        if (scoreBoard[currentIndex] >= SCOREMAX) {
+            stop = true;
+            bestOffset = currentIndex;
+            prefetching = true;
         }
     }
 
@@ -125,15 +179,20 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
     }
     ss << "]";
 
-    DPRINTF(TDTSimpleCache, "Scores updated (address: 0x%08x) (%s)\n",
-        access_addr, ss.str().c_str());
+    DPRINTF(TDTSimpleCache, "Scores updated (round: %d - index: %d) (address: 0x%08x) (%s)\n",
+        currentRound, currentIndex, access_addr, ss.str().c_str());
 
 
     // Increment round
-    currentRound++;
+    currentIndex++;
+    if (currentIndex >= N_OFFSETS) {
+        currentIndex = 0;
+        currentRound++;
+    }
 
-    if (stop || currentRound > ROUNDMAX) {
+    if (stop || (currentRound > ROUNDMAX)) {
         currentRound = 0;
+        currentIndex = 0;
         bestOffset = getBestOffset();
         prefetching = scoreBoard[bestOffset] > BADSCORE;
     }
@@ -168,39 +227,11 @@ TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
 }
 
 void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
-    std::stringstream ss;
-    bool prefetched = hasBeenPrefetched(pkt->getAddr(), pkt->isSecure()) || pkt->cmd.isPrefetch();
-    uint64_t index, address;
-    int choice = 0;
+    // Check queue
+    processNotifications();
 
-    if (!prefetching) {
-        choice = 1;
-        address = pkt->getAddr();
-        index = getIndexRR(address);
-        rrTable[index] = (address >> 8) & 0x0FFF;
-    } else if (prefetched && samePage((pkt->getAddr() - OFFSETS[bestOffset] * blkSize), pkt->getAddr())) {
-        choice = 2;
-        address = pkt->getAddr() - OFFSETS[bestOffset] * blkSize;
-        index = getIndexRR(address);
-        rrTable[index] = (address >> 8) & 0x0FFF;
-    }
-
-    if (choice != 0) {
-        ss << "RecentRequestsTable: [";
-        for (uint64_t i = 0; i < N_RECENT_REQUESTS; i++) {
-            if (rrTable[i] > 0) {
-                ss << "(" << i << ": ";
-                ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << std::dec << rrTable[i] << ") ";
-            }
-        }
-        ss << "]";
-
-        DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (choice: %d) (address: 0x%08x) (index: %d) (%s)\n",
-            prefetched, choice, pkt->getAddr(), index, ss.str().c_str());
-    } else {
-        DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated (prefetched: %d) (address: 0x%08x)\n",
-            prefetched, pkt->getAddr());
-    }
+    // Add notification to queue
+    notifications.push(std::tuple<Addr, bool>(pkt->getAddr(), pkt->isSecure()));
 }
 
 void
@@ -224,6 +255,20 @@ TDTPrefetcher::getBestOffset() {
     DPRINTF(TDTSimpleCache, "Get Best Offset (index: %d offset: %d)\n", index, OFFSETS[index]);
     return index;
 }
+
+// int
+// TDTPrefetcher::getBestOffset(int degree) {
+//     int max = 0, index = 0;
+//     for (int i = 0; i < N_OFFSETS; i++) {
+//         int score = scoreBoard[i];
+//         if (max < score) {
+//             max = score;
+//             index = i;
+//         }
+//     }
+//     DPRINTF(TDTSimpleCache, "Get Best Offset (index: %d offset: %d)\n", index, OFFSETS[index]);
+//     return index;
+// }
 
 uint64_t
 TDTPrefetcher::getIndexRR(const Addr addr) const

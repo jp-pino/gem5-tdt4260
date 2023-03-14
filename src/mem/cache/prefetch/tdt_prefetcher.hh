@@ -2,6 +2,8 @@
 #define __MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__
 
 #include <functional>
+#include <queue>
+#include <tuple>
 
 #include "base/sat_counter.hh"
 #include "base/types.hh"
@@ -74,11 +76,12 @@ class TDTPrefetcher : public Queued
 
     };
 
-    int SCOREMAX = 31;
-    int ROUNDMAX = 100;
-    int BADSCORE = 1;
+    int SCOREMAX;
+    int ROUNDMAX;
+    int BADSCORE;
+    int DEGREE;
     static const int N_OFFSETS = 52;
-    int N_RECENT_REQUESTS = (1 << 8);
+    int N_RECENT_REQUESTS;
 
     // MK begin
     static const int OFFSETS[N_OFFSETS];
@@ -88,17 +91,23 @@ class TDTPrefetcher : public Queued
 
     uint64_t bestOffset;
     uint64_t currentRound;
+    uint64_t currentIndex;
     bool prefetching;
 
     int scoreBoard[N_OFFSETS] = { 0 };
     Addr* rrTable;
+
+    std::queue<std::tuple<Addr, bool>> notifications;
 
     PCTable* findTable(int context);
     PCTable* allocateNewContext(int context);
 
     void scoreBoardInit();
     int getBestOffset();
+    // int getBestOffset(int degree);
     void notifyFill(const PacketPtr &pkt) override;
+
+    void processNotifications();
 
     uint64_t getIndexRR(const Addr pc) const;
 

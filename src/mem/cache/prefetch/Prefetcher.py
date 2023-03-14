@@ -216,7 +216,9 @@ class TDTPrefetcher(QueuedPrefetcher):
     table_replacement_policy = Param.BaseReplacementPolicy(RandomRP(), "Replacement \
         policy of the PC table")
 
-    n_bits_recent_requests = Param.Int(8, "Bits to use for RRTable index")
-    scoremax = Param.Int(31, "Max score (for early stop)")
-    roundmax = Param.Int(100, "Max learning rounds")
-    badscore = Param.Int(1, "Min valid score")
+    n_bits_recent_requests = Param.Int(
+        Parent.n_bits_recent_requests, "Bits to use for RRTable index")
+    scoremax = Param.Int(Parent.scoremax, "Max score (for early stop)")
+    roundmax = Param.Int(Parent.roundmax, "Max learning rounds")
+    badscore = Param.Int(Parent.badscore, "Min valid score")
+    degree = Param.Int(Parent.degree, "Prefetching degree")

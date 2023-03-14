@@ -45,12 +45,14 @@ from m5.objects import *
 from common.Caches import *
 from common import ObjectList
 
+
 def _get_hwp(hwp_option):
     if hwp_option == None:
         return NULL
 
     hwpClass = ObjectList.hwp_list.get(hwp_option)
     return hwpClass()
+
 
 def _get_cache_opts(level, options):
     opts = {}
@@ -64,10 +66,32 @@ def _get_cache_opts(level, options):
         opts['assoc'] = getattr(options, assoc_attr)
 
     prefetcher_attr = '{}_hwp_type'.format(level)
+    prefetcher_n_bits_recent_requests = '{}_prefetcher_n_bits_recent_requests'.format(
+        level)
+    prefetcher_scoremax = '{}_prefetcher_scoremax'.format(level)
+    prefetcher_roundmax = '{}_prefetcher_roundmax'.format(level)
+    prefetcher_badscore = '{}_prefetcher_badscore'.format(level)
+    prefetcher_degree = '{}_prefetcher_degree'.format(level)
     if hasattr(options, prefetcher_attr):
         opts['prefetcher'] = _get_hwp(getattr(options, prefetcher_attr))
+        if hasattr(options, prefetcher_n_bits_recent_requests):
+            opts['prefetcher'].n_bits_recent_requests = getattr(
+                options, prefetcher_n_bits_recent_requests)
+        if hasattr(options, prefetcher_scoremax):
+            opts['prefetcher'].scoremax = getattr(
+                options, prefetcher_scoremax)
+        if hasattr(options, prefetcher_roundmax):
+            opts['prefetcher'].roundmax = getattr(
+                options, prefetcher_roundmax)
+        if hasattr(options, prefetcher_badscore):
+            opts['prefetcher'].badscore = getattr(
+                options, prefetcher_badscore)
+        if hasattr(options, prefetcher_degree):
+            opts['prefetcher'].degree = getattr(
+                options, prefetcher_degree)
 
     return opts
+
 
 def config_cache(options, system):
     if options.external_memory_system and (options.caches or options.l2cache):
@@ -99,7 +123,7 @@ def config_cache(options, system):
             core.HPI_DCache, core.HPI_ICache, core.HPI_L2, None
     else:
         dcache_class, icache_class, l2_cache_class, \
-        l3_cache_class, walk_cache_class = \
+            l3_cache_class, walk_cache_class = \
             L1_DCache, L1_ICache, L2Cache, L3Cache, None
 
         if buildEnv['TARGET_ISA'] in ['x86', 'riscv']:
@@ -122,8 +146,8 @@ def config_cache(options, system):
         system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    **_get_cache_opts('l2', options))
 
-        system.tol3bus = L3XBar(clk_domain = system.cpu_clk_domain)
-        system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
+        system.tol3bus = L3XBar(clk_domain=system.cpu_clk_domain)
+        system.tol2bus = L2XBar(clk_domain=system.cpu_clk_domain)
 
         system.l3.mem_side = system.membus.cpu_side_ports
         system.l3.cpu_side = system.tol3bus.mem_side_ports
@@ -138,7 +162,7 @@ def config_cache(options, system):
         system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
                                    **_get_cache_opts('l2', options))
 
-        system.tol2bus = L2XBar(clk_domain = system.cpu_clk_domain)
+        system.tol2bus = L2XBar(clk_domain=system.cpu_clk_domain)
         system.l2.cpu_side = system.tol2bus.mem_side_ports
         system.l2.mem_side = system.membus.cpu_side_ports
 
@@ -193,14 +217,14 @@ def config_cache(options, system):
             # the names below.
             if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv']:
                 system.cpu[i].addPrivateSplitL1Caches(
-                        ExternalCache("cpu%d.icache" % i),
-                        ExternalCache("cpu%d.dcache" % i),
-                        ExternalCache("cpu%d.itb_walker_cache" % i),
-                        ExternalCache("cpu%d.dtb_walker_cache" % i))
+                    ExternalCache("cpu%d.icache" % i),
+                    ExternalCache("cpu%d.dcache" % i),
+                    ExternalCache("cpu%d.itb_walker_cache" % i),
+                    ExternalCache("cpu%d.dtb_walker_cache" % i))
             else:
                 system.cpu[i].addPrivateSplitL1Caches(
-                        ExternalCache("cpu%d.icache" % i),
-                        ExternalCache("cpu%d.dcache" % i))
+                    ExternalCache("cpu%d.icache" % i),
+                    ExternalCache("cpu%d.dcache" % i))
 
         system.cpu[i].createInterruptController()
         if options.l2cache:
@@ -219,6 +243,8 @@ def config_cache(options, system):
 # the connecting CPU SimObject wants to refer to its "cpu_side".
 # The 'ExternalCache' class provides this adaptation by rewriting the name,
 # eliminating distracting changes elsewhere in the config code.
+
+
 class ExternalCache(ExternalSlave):
     def __getattr__(cls, attr):
         if (attr == "cpu_side"):
@@ -229,6 +255,7 @@ class ExternalCache(ExternalSlave):
         if (attr == "cpu_side"):
             attr = "port"
         return super(ExternalSlave, cls).__setattr__(attr, value)
+
 
 def ExternalCacheFactory(port_type):
     def make(name):

@@ -55,17 +55,18 @@ args.l1i_size = "32KiB"
 
 args.l2_size = "1280KiB" #1.25MiB
 args.l2_assoc = 20
-# args.l2_hwp_type = "TDTPrefetcher"
+args.l2_hwp_type = "TDTPrefetcher"
+
+
+args.l2_prefetcher_n_bits_recent_requests = 12
+args.l2_prefetcher_scoremax = 20
+args.l2_prefetcher_roundmax = 20
+args.l2_prefetcher_badscore = 1
+args.l2_prefetcher_degree = 1
 
 args.l3_size = "3MiB"
 args.l3_assoc = 12
 # args.l3_hwp_type = "TDTPrefetcher"
-
-n_bits_recent_requests = 8
-scoremax = 31
-roundmax = 100
-badscore = 1
-
 
 num_cpus = 1
 
