@@ -216,9 +216,16 @@ class TDTPrefetcher(QueuedPrefetcher):
     table_replacement_policy = Param.BaseReplacementPolicy(RandomRP(), "Replacement \
         policy of the PC table")
 
+
+class BOPrefetcher(QueuedPrefetcher):
+    type = 'BOPrefetcher'
+    cxx_class = 'gem5::prefetch::BOPrefetcher'
+    cxx_header = "mem/cache/prefetch/bo_prefetcher.hh"
+
     n_bits_recent_requests = Param.Int(
         Parent.n_bits_recent_requests, "Bits to use for RRTable index")
     scoremax = Param.Int(Parent.scoremax, "Max score (for early stop)")
     roundmax = Param.Int(Parent.roundmax, "Max learning rounds")
     badscore = Param.Int(Parent.badscore, "Min valid score")
     degree = Param.Int(Parent.degree, "Prefetching degree")
+    parallel = Param.Bool(Parent.parallel, "Parallel score update")

@@ -55,13 +55,13 @@ args.l1i_assoc = 8
 
 args.l2_size = "512KiB" #1.25MiB
 args.l2_assoc = 8
-args.l2_hwp_type = "BOPrefetcher"
-args.l2_prefetcher_n_bits_recent_requests = 8
-args.l2_prefetcher_scoremax = 900
-args.l2_prefetcher_roundmax = 1000
-args.l2_prefetcher_badscore = 1
-args.l2_prefetcher_degree = 1
-args.l2_prefetcher_parallel = True
+# args.l2_hwp_type = "BOPrefetcher"
+# args.l2_prefetcher_n_bits_recent_requests = 12
+# args.l2_prefetcher_scoremax = 31
+# args.l2_prefetcher_roundmax = 100
+# args.l2_prefetcher_badscore = 1
+# args.l2_prefetcher_degree = 1
+# args.l2_prefetcher_parallel = False
 
 args.l3_size = "8MiB"
 args.l3_assoc = 16
@@ -128,3 +128,29 @@ print(f"Simulating gem5 with custom configuration, "\
 root = Root(full_system = False, system = system)
 Simulation.run(args, root, system, futureclass)
 # autopep8: on
+
+
+
+Summary of benchmarking follows...
+-----IPC-----
+gcc_s: 0.235552
+exchange2_s: 1.340687
+mcf_s: 0.794556
+deepsjeng_s: 1.288484
+
+
+
+Detailed stats follow...
+gcc_s stats:
+
+
+
+exchange2_s stats:
+
+
+
+mcf_s stats:
+
+
+
+deepsjeng_s stats:

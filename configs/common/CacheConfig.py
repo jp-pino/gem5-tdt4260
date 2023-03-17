@@ -72,6 +72,7 @@ def _get_cache_opts(level, options):
     prefetcher_roundmax = '{}_prefetcher_roundmax'.format(level)
     prefetcher_badscore = '{}_prefetcher_badscore'.format(level)
     prefetcher_degree = '{}_prefetcher_degree'.format(level)
+    prefetcher_parallel = '{}_prefetcher_parallel'.format(level)
     if hasattr(options, prefetcher_attr):
         opts['prefetcher'] = _get_hwp(getattr(options, prefetcher_attr))
         if hasattr(options, prefetcher_n_bits_recent_requests):
@@ -89,6 +90,9 @@ def _get_cache_opts(level, options):
         if hasattr(options, prefetcher_degree):
             opts['prefetcher'].degree = getattr(
                 options, prefetcher_degree)
+        if hasattr(options, prefetcher_parallel):
+            opts['prefetcher'].parallel = getattr(
+                options, prefetcher_parallel)
 
     return opts
 

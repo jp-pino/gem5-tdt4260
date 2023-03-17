@@ -1,10 +1,6 @@
 #ifndef __MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__
 #define __MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__
 
-#include <functional>
-#include <queue>
-#include <tuple>
-
 #include "base/sat_counter.hh"
 #include "base/types.hh"
 #include "mem/cache/prefetch/associative_set.hh"
@@ -76,44 +72,15 @@ class TDTPrefetcher : public Queued
 
     };
 
-    int SCOREMAX;
-    int ROUNDMAX;
-    int BADSCORE;
-    int DEGREE;
-    static const int N_OFFSETS = 52;
-    int N_RECENT_REQUESTS;
-
-    // MK begin
-    static const int OFFSETS[N_OFFSETS];
-
     typedef AssociativeSet<TDTEntry> PCTable;
     std::unordered_map<int, PCTable> pcTables;
 
-    uint64_t bestOffset;
-    uint64_t currentRound;
-    uint64_t currentIndex;
-    bool prefetching;
-
-    int scoreBoard[N_OFFSETS] = { 0 };
-    Addr* rrTable;
-
-    std::queue<std::tuple<Addr, bool>> notifications;
-
     PCTable* findTable(int context);
+
     PCTable* allocateNewContext(int context);
-
-    void scoreBoardInit();
-    int getBestOffset();
-    // int getBestOffset(int degree);
-    void notifyFill(const PacketPtr &pkt) override;
-
-    void processNotifications();
-
-    uint64_t getIndexRR(const Addr pc) const;
 
   public:
     TDTPrefetcher(const TDTPrefetcherParams &p);
-    ~TDTPrefetcher();
 
     void calculatePrefetch(const PrefetchInfo &pf1,
                            std::vector<AddrPriority> &addresses) override;
@@ -122,6 +89,5 @@ class TDTPrefetcher : public Queued
 
 } //namespace prefetch
 } //namespace gem5
-
 
 #endif //_MEM_CACHE_PREFETCH_TDT_PREFETCHER_HH__

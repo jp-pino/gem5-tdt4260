@@ -9,12 +9,13 @@ config = f"{gem5_root}/configs/tdt4260/prefetcher.py"
 
 num_benchmarks = 4
 
-for x in range(1, num_benchmarks):
+for x in range(num_benchmarks):
     os.chdir("spec2017")
     output_dir = f"prefetcher_out_{x}"
     if (os.path.exists(f"prefetcher_out_{x}")):
         shutil.rmtree(f"prefetcher_out_{x}")
-    run_ref = f"{gem5_bin} -r --debug-flags=TDTSimpleCache --outdir={output_dir} {config} --iteration {x}"
+    # run_ref = f"{gem5_bin} -r --debug-flags=TDTSimpleCache --outdir={output_dir} {config} --iteration {x}"
+    run_ref = f"{gem5_bin} -r --outdir={output_dir} {config} --iteration {x}"
     os.system(run_ref)
     os.chdir(cwd)
 

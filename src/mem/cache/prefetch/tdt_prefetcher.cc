@@ -1,8 +1,5 @@
 #include "mem/cache/prefetch/tdt_prefetcher.hh"
 
-#include <iomanip>
-
-#include "debug/TDTSimpleCache.hh"
 #include "mem/cache/prefetch/associative_set_impl.hh"
 #include "mem/cache/replacement_policies/base.hh"
 #include "params/TDTPrefetcher.hh"
@@ -13,11 +10,6 @@ namespace gem5
 GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
-
-const int TDTPrefetcher::OFFSETS[N_OFFSETS] = {
-    1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 25, 27, 30, 32, 36, 40, 45,
-    48, 50, 54, 60, 64, 72, 75, 80, 81, 90, 96, 100, 108, 120, 125, 128, 135,
-    144, 150, 160, 162, 180, 192, 200, 216, 225, 240, 243, 250, 256};
 
 TDTPrefetcher::TDTEntry::TDTEntry()
     : TaggedEntry()
@@ -36,33 +28,7 @@ TDTPrefetcher::TDTPrefetcher(const TDTPrefetcherParams &params)
       pcTableInfo(params.table_assoc, params.table_entries,
                   params.table_indexing_policy,
                   params.table_replacement_policy)
-{
-    bestOffset = 0;
-    prefetching = false;
-    currentRound = 0;
-    currentIndex = 0;
-
-    SCOREMAX = params.scoremax;
-    ROUNDMAX = params.roundmax;
-    BADSCORE = params.badscore;
-    DEGREE = params.degree;
-
-    N_RECENT_REQUESTS = (1 << params.n_bits_recent_requests);
-
-    DPRINTF(TDTSimpleCache, "SCOREMAX: %d, ROUNDMAX: %d, BADSCORE: %d, N_RECENT_REQUESTS: %d, DEGREE: %d\n",
-        SCOREMAX, ROUNDMAX, BADSCORE, N_RECENT_REQUESTS, DEGREE);
-
-    rrTable = new Addr[N_RECENT_REQUESTS];
-    scoreBoardInit();
-    for (int i = 0; i < N_RECENT_REQUESTS; i++) {
-        rrTable[i] = 0;
-    }
-}
-
-TDTPrefetcher::~TDTPrefetcher() {
-    delete rrTable;
-}
-
+    {}
 
 TDTPrefetcher::PCTable*
 TDTPrefetcher::findTable(int context)
@@ -87,193 +53,36 @@ TDTPrefetcher::allocateNewContext(int context)
 }
 
 void
-TDTPrefetcher::processNotifications() {
-    std::stringstream ss;
-
-    while (!notifications.empty()) {
-        // Get notification
-        auto notification = notifications.front();
-
-        // Extract packet information
-        Addr pktAddress = std::get<0>(notification);
-        bool pktSecure = std::get<1>(notification);
-
-        // Remove from queue
-        notifications.pop();
-
-        // Update RRTable algorithm
-        bool prefetched = hasBeenPrefetched(pktAddress, pktSecure);
-        uint64_t index, address;
-        int choice = 0;
-
-        if (!prefetching) {
-            choice = 1;
-            address = pktAddress;
-            index = getIndexRR(address);
-            rrTable[index] = (address >> 8) & 0x0FFF;
-        } else if (prefetched && samePage((pktAddress - OFFSETS[bestOffset] * blkSize), pktAddress)) {
-            choice = 2;
-            address = pktAddress - OFFSETS[bestOffset] * blkSize;
-            index = getIndexRR(address);
-            rrTable[index] = (address >> 8) & 0x0FFF;
-        }
-
-        if (choice != 0) {
-            ss << "RecentRequestsTable: [";
-            for (uint64_t i = 0; i < N_RECENT_REQUESTS; i++) {
-                if (rrTable[i] > 0) {
-                    ss << "(" << i << ": ";
-                    ss << "0x" << std::setw(2) << std::setfill('0') << std::hex << std::dec << rrTable[i] << ") ";
-                }
-            }
-            ss << "]";
-
-            DPRINTF(TDTSimpleCache, "Cache filled (prefetched: %d) (choice: %d) (address: 0x%08x) (index: %d) (%s)\n",
-                prefetched, choice, pktAddress, index, ss.str().c_str());
-        } else {
-            DPRINTF(TDTSimpleCache, "Ignored Fill. RRTable not updated (prefetched: %d) (address: 0x%08x)\n",
-                prefetched, pktAddress);
-        }
-    }
-
-}
-
-void
 TDTPrefetcher::calculatePrefetch(const PrefetchInfo &pfi,
                                  std::vector<AddrPriority> &addresses)
 {
-    std::stringstream ss;
     Addr access_addr = pfi.getAddr();
     Addr access_pc = pfi.getPC();
     int context = 0;
-    bool stop = false;
-
-    // Process all notifications
-    processNotifications();
-
-    // Reset all scores to 0 at the start of the learning round
-    if (currentRound == 0 && currentIndex == 0) {
-        scoreBoardInit();
-    }
-
-
-    // Increment scores
-    if (rrTable[getIndexRR(access_addr - OFFSETS[currentIndex] * blkSize)] == ((access_addr >> 8) & 0x0FFF)) {
-        scoreBoard[currentIndex]++;
-
-        // Early stop
-        if (scoreBoard[currentIndex] >= SCOREMAX) {
-            stop = true;
-            bestOffset = currentIndex;
-            prefetching = true;
-        }
-    }
-
-
-    ss << "Scores Table: [";
-    for (uint64_t i = 0; i < N_OFFSETS; i++) {
-        if (scoreBoard[i] > 0) {
-            ss << "(" << i << " -> " << OFFSETS[i] << ": ";
-            ss << scoreBoard[i] << ") ";
-        }
-    }
-    ss << "]";
-
-    DPRINTF(TDTSimpleCache, "Scores updated (round: %d - index: %d) (address: 0x%08x) (%s)\n",
-        currentRound, currentIndex, access_addr, ss.str().c_str());
-
-
-    // Increment round
-    currentIndex++;
-    if (currentIndex >= N_OFFSETS) {
-        currentIndex = 0;
-        currentRound++;
-    }
-
-    if (stop || (currentRound > ROUNDMAX)) {
-        currentRound = 0;
-        currentIndex = 0;
-        bestOffset = getBestOffset();
-        prefetching = scoreBoard[bestOffset] > BADSCORE;
-    }
 
     // Next line prefetching
-    if (prefetching) {
-        DPRINTF(TDTSimpleCache, "Prefetching address: 0x%08x\n", (access_addr + OFFSETS[bestOffset] * blkSize));
-        addresses.push_back(AddrPriority(access_addr + OFFSETS[bestOffset] * blkSize, 0));
-    }
+    addresses.push_back(AddrPriority(access_addr + blkSize, 0));
 
+    // // Get matching storage of entries
+    // // Context is 0 due to single-threaded application
+    // PCTable* pcTable = findTable(context);
 
-    // Get matching storage of entries
-    // Context is 0 due to single-threaded application
-    PCTable* pcTable = findTable(context);
+    // // Get matching entry from PC
+    // TDTEntry *entry = pcTable->findEntry(access_pc, false);
 
-    // Get matching entry from PC
-    TDTEntry *entry = pcTable->findEntry(access_pc, false);
+    // // Check if you have entry
+    // if (entry != nullptr) {
+    //     // There is an entry
+    // } else {
+    //     // No entry
+    // }
 
-    // Check if you have entry
-    if (entry != nullptr) {
-        // There is an entry
-    } else {
-        // No entry
-    }
-
-    // *Add* new entry
-    // All entries exist, you must replace previous with new data
-    // Find replacement victim, update info
+    // // *Add* new entry
+    // // All entries exist, you must replace previous with new data
+    // // Find replacement victim, update info
     // TDTEntry* victim = pcTable->findVictim(access_pc);
     // victim->lastAddr = access_addr;
     // pcTable->insertEntry(access_pc, false, victim);
-}
-
-void TDTPrefetcher::notifyFill(const PacketPtr &pkt) {
-    // Check queue
-    processNotifications();
-
-    // Add notification to queue
-    notifications.push(std::tuple<Addr, bool>(pkt->getAddr(), pkt->isSecure()));
-}
-
-void
-TDTPrefetcher::scoreBoardInit() {
-    DPRINTF(TDTSimpleCache, "Initializing scoreBoard\n");
-    for (int i = 0; i < N_OFFSETS; i++) {
-        scoreBoard[i] = 0;
-    }
-}
-
-int
-TDTPrefetcher::getBestOffset() {
-    int max = 0, index = 0;
-    for (int i = 0; i < N_OFFSETS; i++) {
-        int score = scoreBoard[i];
-        if (max < score) {
-            max = score;
-            index = i;
-        }
-    }
-    DPRINTF(TDTSimpleCache, "Get Best Offset (index: %d offset: %d)\n", index, OFFSETS[index]);
-    return index;
-}
-
-// int
-// TDTPrefetcher::getBestOffset(int degree) {
-//     int max = 0, index = 0;
-//     for (int i = 0; i < N_OFFSETS; i++) {
-//         int score = scoreBoard[i];
-//         if (max < score) {
-//             max = score;
-//             index = i;
-//         }
-//     }
-//     DPRINTF(TDTSimpleCache, "Get Best Offset (index: %d offset: %d)\n", index, OFFSETS[index]);
-//     return index;
-// }
-
-uint64_t
-TDTPrefetcher::getIndexRR(const Addr addr) const
-{
-    return (addr & (N_RECENT_REQUESTS - 1)) ^ ((addr >> 8) & (N_RECENT_REQUESTS - 1));
 }
 
 uint32_t

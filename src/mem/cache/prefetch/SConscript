@@ -34,6 +34,7 @@ SimObject('Prefetcher.py', sim_objects=[
     'QueuedPrefetcher',
     'MultiPrefetcher',
     'StridePrefetcherHashedSetAssociative',
+    'BOPrefetcher',
     'TDTPrefetcher',
     'TDTPrefetcherHashedSetAssociative'])
 
@@ -42,3 +43,4 @@ Source('stride.cc')
 Source('queued.cc')
 Source('multi.cc')
 Source('tdt_prefetcher.cc')
+Source('bo_prefetcher.cc')
